@@ -72,7 +72,12 @@ public class AccountService {
         usernameByEmail.put(emailKey, userKey);
         return ResultCode.SUCCESS;
     }
-
+    public Optional<Account> findByUsername(String username) {
+        if (isBlank(username)) {
+            return Optional.empty();
+        }
+        return Optional.ofNullable(accountsByUsername.get(key(username)));
+    }
     private static boolean isBlank(String s) {
         return s == null || s.isBlank();
     }
