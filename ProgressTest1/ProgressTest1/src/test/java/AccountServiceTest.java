@@ -201,8 +201,23 @@ public class AccountServiceTest {
             assertEquals(64, acc.getCurrentPasswordHash().length());
             assertEquals(1, acc.getPasswordHistory().size());
         }
+        @Test
+        void register_UpperCaseEmail_StoredAsLowerCase() {
+            service.register(USER, "Alice@Example.COM", PASS, PASS, DOB, PHONE);
+            assertEquals("alice@example.com", account().getEmail());
+        }
+
+        @Test
+        void register_TwoAccountsSamePassword_HaveDifferentSaltAndHash() {
+            registerDefault();
+            service.register("bob_02", "bob@example.com", PASS, PASS, DOB, null);
+            Account bob = service.findByUsername("bob_02").orElseThrow();
+            assertNotEquals(account().getSalt(), bob.getSalt());
+            assertNotEquals(account().getCurrentPasswordHash(), bob.getCurrentPasswordHash());
+        }
+
         @ParameterizedTest(name = "[{index}] {0}")
-        @MethodSource("lab2.account.AccountServiceTest#invalidRegisterInputs")
+        @MethodSource("AccountServiceTest#invalidRegisterInputs")
         void register_InvalidInput_ReturnsExpectedCode(String desc, String username, String email,
                                                        String password, String confirm, LocalDate dob,
                                                        String phone, ResultCode expected) {
@@ -271,5 +286,69 @@ public class AccountServiceTest {
             assertEquals(expected, service.register(USER, EMAIL, PASS, PASS, dob, null));
         }
 
+        @Test
+        void register_DuplicateUsernameButInvalidEmail_ReturnsInvalidEmailFirst() {
+            // BR-REG-04 đứng trước BR-REG-03
+            registerDefault();
+            assertEquals(ResultCode.INVALID_EMAIL,
+                    service.register(USER, "bad-email", PASS, PASS, DOB, null));
+        }
+    }
+
+    static Stream<Arguments> invalidRegisterInputs() {
+        return Stream.of(
+                // từng quy tắc riêng lẻ
+                Arguments.of("dob null", USER, EMAIL, PASS, PASS, null, PHONE, ResultCode.INVALID_INPUT),
+                Arguments.of("username sai", "1alice", EMAIL, PASS, PASS, DOB, PHONE, ResultCode.INVALID_USERNAME),
+                Arguments.of("email sai", USER, "alice@example", PASS, PASS, DOB, PHONE, ResultCode.INVALID_EMAIL),
+                Arguments.of("mật khẩu yếu", USER, EMAIL, "password", "password", DOB, PHONE, ResultCode.WEAK_PASSWORD),
+                Arguments.of("mật khẩu chứa username", USER, EMAIL, "Alice_01@x", "Alice_01@x", DOB, PHONE, ResultCode.WEAK_PASSWORD),
+                Arguments.of("confirm lệch", USER, EMAIL, PASS, "Secret@124", DOB, PHONE, ResultCode.PASSWORD_MISMATCH),
+                Arguments.of("chưa đủ tuổi", USER, EMAIL, PASS, PASS, CHILD_DOB, PHONE, ResultCode.UNDERAGE),
+                Arguments.of("phone sai đầu số", USER, EMAIL, PASS, PASS, DOB, "0112345678", ResultCode.INVALID_PHONE),
+                Arguments.of("phone blank", USER, EMAIL, PASS, PASS, DOB, "   ", ResultCode.INVALID_PHONE),
+                // thứ tự ưu tiên khi vi phạm nhiều quy tắc
+                Arguments.of("thiếu email + username sai -> INVALID_INPUT", "1alice", "", PASS, PASS, DOB, PHONE, ResultCode.INVALID_INPUT),
+                Arguments.of("username sai + email sai -> INVALID_USERNAME", "1alice", "bad", PASS, PASS, DOB, PHONE, ResultCode.INVALID_USERNAME),
+                Arguments.of("email sai + mk yếu -> INVALID_EMAIL", USER, "bad", "weak", "weak", DOB, PHONE, ResultCode.INVALID_EMAIL),
+                Arguments.of("mk yếu + confirm lệch -> WEAK_PASSWORD", USER, EMAIL, "weak", "other", DOB, PHONE, ResultCode.WEAK_PASSWORD),
+                Arguments.of("confirm lệch + chưa đủ tuổi -> PASSWORD_MISMATCH", USER, EMAIL, PASS, "x", CHILD_DOB, PHONE, ResultCode.PASSWORD_MISMATCH),
+                Arguments.of("chưa đủ tuổi + phone sai -> UNDERAGE", USER, EMAIL, PASS, PASS, CHILD_DOB, "123", ResultCode.UNDERAGE)
+        );
+    }
+
+    // ======================================================================
+    @Nested
+    @DisplayName("Quản trị & truy vấn")
+    class Admin {
+
+        @Test
+        void disableAccount_ExistingUser_SetsDisabled() {
+            registerDefault();
+            assertEquals(ResultCode.SUCCESS, service.disableAccount("ALICE_01"));
+            assertEquals(AccountStatus.DISABLED, account().getStatus());
+        }
+
+        @ParameterizedTest
+        @NullAndEmptySource
+        @ValueSource(strings = {" ", "nobody_1"})
+        void disableAccount_BlankOrUnknown_ReturnsUserNotFound(String username) {
+            assertEquals(ResultCode.USER_NOT_FOUND, service.disableAccount(username));
+        }
+
+        @ParameterizedTest
+        @NullAndEmptySource
+        @ValueSource(strings = {" ", "nobody_1"})
+        void unlockAccount_BlankOrUnknown_ReturnsUserNotFound(String username) {
+            assertEquals(ResultCode.USER_NOT_FOUND, service.unlockAccount(username));
+        }
+
+        @ParameterizedTest
+        @NullAndEmptySource
+        @ValueSource(strings = {" ", "nobody_1"})
+        void findByUsername_BlankOrUnknown_ReturnsEmpty(String username) {
+            assertTrue(service.findByUsername(username).isEmpty());
+            assertFalse(service.isLocked(username));
+        }
     }
 }
