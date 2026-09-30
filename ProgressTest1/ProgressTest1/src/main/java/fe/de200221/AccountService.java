@@ -79,10 +79,13 @@ public class AccountService {
 
         if (!PasswordHasher.matches(acc.getSalt(), password, acc.getCurrentPasswordHash())) {
             acc.incrementFailedAttempts();
-            // TODO: nếu failedAttempts >= MAX_FAILED_ATTEMPTS -> acc.lock(), trả ACCOUNT_LOCKED
+            if (acc.getFailedAttempts() >= MAX_FAILED_ATTEMPTS) {
+                acc.lock();
+                return ResultCode.ACCOUNT_LOCKED;
+            }
             return ResultCode.INVALID_CREDENTIALS;
         }
-        // TODO: failedAttempts = 0
+        acc.resetFailedAttempts();
         return ResultCode.SUCCESS;
     }
 
