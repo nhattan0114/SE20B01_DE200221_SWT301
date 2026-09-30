@@ -19,9 +19,7 @@ public class AccountService {
 
 
     public AccountService() { /* TODO: khởi tạo các Map */ }
-    public ResultCode unlockAccount(String username) { throw new UnsupportedOperationException("TODO"); }
-    // ... register, login, changePassword, requestPasswordReset, resetPassword,
-    //     disableAccount, findByUsername, isLocked như mục 5.3
+
     public ResultCode register(String username, String email, String password,
                                String confirmPassword, LocalDate dateOfBirth, String phone) {
         LocalDate today = LocalDate.now();
@@ -74,7 +72,7 @@ public class AccountService {
     }
     public ResultCode login(String username, String password) {
         if (isBlank(username) || isBlank(password)) return ResultCode.INVALID_INPUT;
-        Account acc = accounts.get(key(username));
+        Account acc = accountsByUsername.get(key(username));
         if (acc == null) return ResultCode.INVALID_CREDENTIALS;              // không tiết lộ lý do
         if (acc.getStatus() == AccountStatus.DISABLED) return ResultCode.ACCOUNT_DISABLED;
         if (acc.isLocked()) return ResultCode.ACCOUNT_LOCKED;                // không tăng bộ đếm
