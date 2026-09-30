@@ -201,5 +201,75 @@ public class AccountServiceTest {
             assertEquals(64, acc.getCurrentPasswordHash().length());
             assertEquals(1, acc.getPasswordHistory().size());
         }
+        @ParameterizedTest(name = "[{index}] {0}")
+        @MethodSource("lab2.account.AccountServiceTest#invalidRegisterInputs")
+        void register_InvalidInput_ReturnsExpectedCode(String desc, String username, String email,
+                                                       String password, String confirm, LocalDate dob,
+                                                       String phone, ResultCode expected) {
+            ResultCode result = service.register(username, email, password, confirm, dob, phone);
+
+            assertEquals(expected, result);
+            assertTrue(service.findByUsername(username).isEmpty(), "Không được tạo tài khoản");
+        }
+
+        @ParameterizedTest(name = "[{index}] username = \"{0}\"")
+        @NullAndEmptySource
+        @ValueSource(strings = {"   "})
+        void register_UsernameNullEmptyBlank_ReturnsInvalidInput(String username) {
+            assertEquals(ResultCode.INVALID_INPUT, service.register(username, EMAIL, PASS, PASS, DOB, PHONE));
+        }
+
+        @ParameterizedTest(name = "[{index}] email = \"{0}\"")
+        @NullAndEmptySource
+        @ValueSource(strings = {"   "})
+        void register_EmailNullEmptyBlank_ReturnsInvalidInput(String email) {
+            assertEquals(ResultCode.INVALID_INPUT, service.register(USER, email, PASS, PASS, DOB, PHONE));
+        }
+
+        @ParameterizedTest(name = "[{index}] password = \"{0}\"")
+        @NullAndEmptySource
+        @ValueSource(strings = {"   "})
+        void register_PasswordNullEmptyBlank_ReturnsInvalidInput(String password) {
+            assertEquals(ResultCode.INVALID_INPUT, service.register(USER, EMAIL, password, PASS, DOB, PHONE));
+            assertEquals(ResultCode.INVALID_INPUT, service.register(USER, EMAIL, PASS, password, DOB, PHONE));
+        }
+
+        @ParameterizedTest(name = "[{index}] phone = \"{0}\" được chấp nhận")
+        @NullAndEmptySource
+        void register_PhoneNullOrEmpty_Success(String phone) {
+            assertEquals(ResultCode.SUCCESS, service.register(USER, EMAIL, PASS, PASS, DOB, phone));
+        }
+
+        @ParameterizedTest(name = "[{index}] trùng username \"{0}\"")
+        @ValueSource(strings = {"alice_01", "ALICE_01", "Alice_01"})
+        void register_DuplicateUsernameIgnoreCase_ReturnsDuplicateUsername(String username) {
+            registerDefault();
+            assertEquals(ResultCode.DUPLICATE_USERNAME,
+                    service.register(username, "other@example.com", PASS, PASS, DOB, null));
+        }
+
+        @ParameterizedTest(name = "[{index}] trùng email \"{0}\"")
+        @ValueSource(strings = {"alice@example.com", "ALICE@EXAMPLE.COM", "Alice@Example.Com"})
+        void register_DuplicateEmailIgnoreCase_ReturnsDuplicateEmail(String email) {
+            registerDefault();
+            assertEquals(ResultCode.DUPLICATE_EMAIL,
+                    service.register("bob_02", email, PASS, PASS, DOB, null));
+            assertTrue(service.findByUsername("bob_02").isEmpty());
+        }
+
+        /** Ngày sinh tính tương đối so với hôm nay: dob = today - {0} năm + {1} ngày. */
+        @ParameterizedTest(name = "[{index}] today - {0} năm + {1} ngày -> {2}")
+        @CsvSource({
+                "18,  0, SUCCESS",       // đúng 18 tuổi hôm nay
+                "18,  1, UNDERAGE",      // 18 tuổi trừ 1 ngày
+                "18, -1, SUCCESS",       // 18 tuổi + 1 ngày
+                "0,   0, UNDERAGE",      // sinh hôm nay
+                "0,   1, INVALID_INPUT"  // ngày sinh ở tương lai
+        })
+        void register_AgeBoundary(int yearsAgo, int plusDays, ResultCode expected) {
+            LocalDate dob = LocalDate.now().minusYears(yearsAgo).plusDays(plusDays);
+            assertEquals(expected, service.register(USER, EMAIL, PASS, PASS, dob, null));
+        }
+
     }
 }
