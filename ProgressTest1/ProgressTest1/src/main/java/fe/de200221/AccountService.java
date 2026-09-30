@@ -72,12 +72,46 @@ public class AccountService {
         usernameByEmail.put(emailKey, userKey);
         return ResultCode.SUCCESS;
     }
+    public ResultCode login(String username, String password) {
+        if (isBlank(username) || isBlank(password)) return ResultCode.INVALID_INPUT;
+        Account acc = accounts.get(key(username));
+        if (acc == null) return ResultCode.INVALID_CREDENTIALS;              // không tiết lộ lý do
+        if (acc.getStatus() == AccountStatus.DISABLED) return ResultCode.ACCOUNT_DISABLED;
+        if (acc.isLocked()) return ResultCode.ACCOUNT_LOCKED;                // không tăng bộ đếm
+
+        if (!PasswordHasher.matches(acc.getSalt(), password, acc.getCurrentPasswordHash())) {
+            acc.incrementFailedAttempts();
+            // TODO: nếu failedAttempts >= MAX_FAILED_ATTEMPTS -> acc.lock(), trả ACCOUNT_LOCKED
+            return ResultCode.INVALID_CREDENTIALS;
+        }
+        // TODO: failedAttempts = 0
+        return ResultCode.SUCCESS;
+    }
+
+    public ResultCode unlockAccount(String username) {          // BR-ADM-03
+        Optional<Account> acc = findByUsername(username);
+        if (acc.isEmpty()) return ResultCode.USER_NOT_FOUND;
+        acc.get().unlock();                                         // locked = false, failedAttempts = 0
+        return ResultCode.SUCCESS;
+    }
+    public ResultCode disableAccount(String username) {
+        Optional<Account> account = findByUsername(username);
+        if (account.isEmpty()) {
+            return ResultCode.USER_NOT_FOUND;
+        }
+        account.get().setStatus(AccountStatus.DISABLED);
+        return ResultCode.SUCCESS;
+    }
+    public boolean isLocked(String username) {
+        return findByUsername(username).map(Account::isLocked).orElse(false);
+    }
     public Optional<Account> findByUsername(String username) {
         if (isBlank(username)) {
             return Optional.empty();
         }
         return Optional.ofNullable(accountsByUsername.get(key(username)));
     }
+
     private static boolean isBlank(String s) {
         return s == null || s.isBlank();
     }
