@@ -72,6 +72,7 @@ public class AccountService {
     }
     public ResultCode login(String username, String password) {
         if (isBlank(username) || isBlank(password)) return ResultCode.INVALID_INPUT;
+
         Account acc = accountsByUsername.get(key(username));
         if (acc == null) return ResultCode.INVALID_CREDENTIALS;              // không tiết lộ lý do
         if (acc.getStatus() == AccountStatus.DISABLED) return ResultCode.ACCOUNT_DISABLED;
