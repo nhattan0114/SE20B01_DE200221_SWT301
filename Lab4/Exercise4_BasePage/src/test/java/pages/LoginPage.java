@@ -19,7 +19,7 @@ public class LoginPage extends BasePage{
 
     // ===== Actions =====
     public void navigate() {
-        driver.get("https://the-internet.herokuapp.com/login");
+        driver.get(utils.ConfigReader.get("baseUrl", "https://the-internet.herokuapp.com") + "/login");
     }
 
     public void login(String username, String password) {

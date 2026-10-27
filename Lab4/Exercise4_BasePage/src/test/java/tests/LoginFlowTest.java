@@ -31,7 +31,7 @@ class LoginFlowTest extends BaseTest {
     @DisplayName("Secure page cannot be accessed without login")
     void secureRequiresLogin() {
         driver.manage().deleteAllCookies();
-        driver.get("https://the-internet.herokuapp.com/secure");
+        driver.get(utils.ConfigReader.get("baseUrl", "https://the-internet.herokuapp.com") + "/secure");
         LoginPage loginPage = new LoginPage(driver);
         assertTrue(loginPage.getFlashMessage().contains("You must login to view the secure area!"));
     }
