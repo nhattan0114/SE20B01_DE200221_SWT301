@@ -1,6 +1,7 @@
 import io.github.bonigarcia.wdm.WebDriverManager;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvFileSource;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
@@ -81,6 +82,33 @@ public class LoginTest {
     @DisplayName("Multiple login attempts using @CsvSource")
     void testLoginWithMultipleParameters(String username, String password, String expectedResult) {
         driver.get("https://the-internet.herokuapp.com/login");
+
+        driver.findElement(By.id("username")).sendKeys(username);
+        driver.findElement(By.id("password")).sendKeys(password);
+        driver.findElement(By.cssSelector("button[type='submit']")).click();
+
+        By messageLocator = expectedResult.equals("success")
+                ? By.cssSelector(".flash.success")
+                : By.cssSelector(".flash.error");
+
+        WebElement message = wait.until(ExpectedConditions.visibilityOfElementLocated(messageLocator));
+
+        if (expectedResult.equals("success")) {
+            assertTrue(message.getText().contains("You logged into a secure area!"));
+        } else {
+            assertTrue(message.getText().toLowerCase().contains("invalid"));
+        }
+    }
+    @Order(4)
+    @ParameterizedTest(name = "CSV [{index}]: {0} / {1} → {2}")
+    @CsvFileSource(resources = "/login-data.csv", numLinesToSkip = 1)
+    @DisplayName("Login with data from external CSV file")
+    void testLoginWithCSV(String username, String password, String expectedResult) {
+        driver.get("https://the-internet.herokuapp.com/login");
+
+        // null → "" và trim() để tránh lỗi khoảng trắng khi copy/paste CSV
+        username = (username == null) ? "" : username.trim();
+        password = (password == null) ? "" : password.trim();
 
         driver.findElement(By.id("username")).sendKeys(username);
         driver.findElement(By.id("password")).sendKeys(password);
